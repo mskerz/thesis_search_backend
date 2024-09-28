@@ -1,6 +1,6 @@
 import fitz  # PyMuPDF
 import os
-from fonts.THSarabun import get_font
+from .fonts.THSarabun import get_font
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfbase import pdfmetrics
@@ -21,7 +21,7 @@ class WaterMark:
         pdfmetrics.registerFont(TTFont('THSarabunNew', font_path))
 
         # ตั้งค่าฟอนต์และขนาด
-        c.setFont('THSarabunNew', 35)
+        c.setFont('THSarabunNew', 40)
         c.setFillColorRGB(0.8, 0.8, 0.8)  # สีเทาอ่อน
 
          # วางข้อความที่กลางหน้า
@@ -61,6 +61,6 @@ class WaterMark:
         os.remove(temp_watermark_path)
 
 # ตัวอย่างการใช้งาน
-path = os.path.join(r"D:\รวมวิทยานิพนธ์2566_pdf", "วิศรุต_weaponsdex_วิศรุต_รวมเล่ม.pdf")
-wm = WaterMark(pathPDF=path)
-wm.addWaterMark("ภาควิชาวิทยาการคอมพิวเตอร์และสารสนเทศ", "output.pdf")
+# path = os.path.join(r"D:\รวมวิทยานิพนธ์2566_pdf", "วิศรุต_weaponsdex_วิศรุต_รวมเล่ม.pdf")
+# wm = WaterMark(pathPDF=path)
+# wm.addWaterMark("ภาควิชาวิทยาการคอมพิวเตอร์และสารสนเทศ", "output.pdf")

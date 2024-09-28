@@ -5,7 +5,7 @@ import os
 import shutil
 from typing import List
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile, status
-from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
 from middleware.authentication import verify_password, create_access_token, hash_password, get_current_user, JWT_EXPIRATION_MINUTES
 from utils.preprocess import perform_removal, read_abstract_from_docx, extract_text_from_page, docx_to_pdf, PDF_DIR, DOCX_DIR
 from model.advisor import Advisor
@@ -21,6 +21,8 @@ from urllib.parse import quote
 from pythainlp.tokenize import word_tokenize
 from sqlalchemy.exc import IntegrityError
 import io
+
+from utils.create_watermark import  WaterMark
 
 
 thesis_router = APIRouter()
@@ -70,22 +72,25 @@ async def download_file(doc_id: int, current_user: User = Depends(get_current_us
     pdf_file_path = os.path.join(
         os.getcwd(), "upload", "pdf", thesis_file.file_name.replace('.docx', '.pdf'))
 
-    # ตรวจสอบว่าไฟล์ .pdf มีอยู่แล้วหรือไม่
-    if not os.path.exists(pdf_file_path):
-        # แปลงไฟล์ .docx เป็น .pdf
-        docx_file_path = thesis_file.file_path
-        convert(docx_file_path, pdf_file_path)
-
     # ตรวจสอบว่าไฟล์ .pdf มีอยู่จริงหรือไม่
     if not os.path.exists(pdf_file_path):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="PDF file not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="PDF file not found")
+    
+    # สร้าง watermark ใน PDF
+    output_watermark_path = pdf_file_path.replace('.pdf', '_watermarked.pdf')
+    wm = WaterMark(pathPDF=pdf_file_path)
+    wm.addWaterMark("ภาควิชาวิทยาการคอมพิวเตอร์และสารสนเทศ มก.ฉกส.", output_watermark_path)
 
-    # เปิดไฟล์ .pdf เป็นโหมดอ่านแบบ binary
-    with open(pdf_file_path, "rb") as pdf_file:
-        # ส่งกลับไฟล์ .pdf ให้ผู้ใช้ดาวน์โหลดโดยใช้ StreamingResponse
-        return StreamingResponse(io.BytesIO(pdf_file.read()), media_type="application/pdf", headers={"Content-Disposition": f"attachment; filename={quote(thesis_file.file_name.replace('.docx', '.pdf'))}"})
+    # ตรวจสอบว่าไฟล์ watermark ถูกสร้างหรือไม่
+    if not os.path.exists(output_watermark_path):
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error creating watermark")
 
+    # ส่งไฟล์ PDF ที่มี watermark กลับไปยังผู้ใช้
+    return FileResponse(output_watermark_path, media_type='application/pdf', filename=os.path.basename(output_watermark_path))
+
+    
+
+ 
 
 @thesis_router.get("/check-thesis")
 async def check_thesis(
@@ -238,7 +243,6 @@ async def file_preview(file_name: str, current_user: User = Depends(get_current_
     Raises:
         HTTPException: If the file is not found in the database or on the disk.
     """
-    path = os.path.join(os.getcwd(), "upload", "pdf", file_name)
     if current_user.access_role != 1:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Permission denied")
@@ -250,14 +254,16 @@ async def file_preview(file_name: str, current_user: User = Depends(get_current_
         raise HTTPException(status_code=404, detail="File not found")
 
     # Construct the file path
-    file_path = thesis_file.file_path
+    
+    path = os.path.join(os.getcwd(), "upload", "pdf", file_name)
+
 
     # Check if file exists on disk
-    if not os.path.exists(file_path):
+    if not os.path.exists(path):
         raise HTTPException(status_code=404, detail="File not found on disk")
 
     # Return file as response
-    return FileResponse(path=file_path, filename=file_name, media_type='application/pdf')
+    return FileResponse(path=path, filename=file_name, media_type='application/pdf')
 
 
 @thesis_router.put('/recheck-thesis/{doc_id}/', tags=['Admin Management'])
@@ -320,52 +326,7 @@ async def recheck(doc_id: int, status: int = Query(None), current_user: User = D
     return {"message": "Recheck operation completed successfully.", "status": 200}
 
 
-@thesis_router.post('/word_abstract', tags=['Admin Management'])
-async def extract_abstract(file: UploadFile = File(...)):
-    if not file.filename.endswith('.docx'):
-        raise HTTPException(
-            status_code=400, detail="Invalid file type. Please upload a .docx file.")
-
-    try:
-        # Define paths for the temporary files
-        docx_path = os.path.join(DOCX_DIR, "temp_docx_file.docx")
-        pdf_path = os.path.join(PDF_DIR, "temp_pdf_file.pdf")
-
-        # Save the uploaded file to the temporary directory
-        with open(docx_path, "wb") as buffer:
-            buffer.write(await file.read())
-
-        # Convert DOCX to PDF
-        docx_to_pdf(docx_path, pdf_path)
-
-        # Extract text from the specified page
-        extracted_text = extract_text_from_page(pdf_path, page_number=4)
-
-        # Process the text
-        word_seg = word_tokenize(
-            extracted_text, keep_whitespace=False, engine='newmm')
-        word_seg = list(map(perform_removal, word_seg))
-        filtered_words = list(filter(lambda word: word != '', word_seg))
-
-        # Calculate term frequency
-        term_frequency = {}
-        for word in filtered_words:
-            term_frequency[word] = term_frequency.get(word, 0) + 1
-
-        # Clean up temporary files
-        os.remove(docx_path)
-        os.remove(pdf_path)
-
-        return {
-            "text": " ".join(filtered_words),
-            "term": term_frequency
-        }
-
-    except HTTPException as e:
-        raise e
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
+ 
 """
 test login 
 
@@ -400,3 +361,5 @@ test import
   "year": 2566
 }
 """
+
+ 

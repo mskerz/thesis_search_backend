@@ -3,7 +3,7 @@ from fastapi import Form, UploadFile
 from pydantic import BaseModel
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String,Text
 from sqlalchemy.orm import relationship
-from datetime import timezone
+from datetime import timezone,datetime
 from config.db_connect import Base
 
 class ThesisDocument(Base):
@@ -20,7 +20,7 @@ class ThesisDocument(Base):
     abstract = Column(Text)
     recheck_status =Column(Integer,default=0)
     deleted_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, nullable=True,default=DateTime.now())
+    created_at = Column(DateTime, nullable=True,default=datetime.now())
 
 
 
