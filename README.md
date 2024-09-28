@@ -1,6 +1,6 @@
 # Thesis Search System
 
-This Final project is a search engine designed for computer science theses. It provides functionalities like document indexing, TF-IDF-based search, and user account management. 
+This Senior project is a theses search system for Computer Science students. It provides functionalities like document indexing, TF-IDF-based search, and user account management. 
 
 ## System Scope
 
