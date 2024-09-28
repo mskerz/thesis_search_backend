@@ -28,10 +28,10 @@ Results are ranked based on their TF-IDF scores to provide the most relevant res
 - Change Password
 - Reset Password
 
-## Tech Stack
-- **Frontend**: [![Frontend](https://skillicons.dev/icons?i=angular)](https://github.com/mskerz/thesis_search_backend)
-- **Backend**:  [![Backend](https://skillicons.dev/icons?i=fastapi)](https://github.com/mskerz/thesis_search_backend)
-- **Database**: MySQL(PHPMyAdmin) [![DB](https://skillicons.dev/icons?i=mysql)](https://github.com/mskerz/thesis_search_backend)
+## Tech Stack - Backend 
+[![Frontend](https://skillicons.dev/icons?i=fastapi,mysql)](https://github.com/mskerz/thesis_search_backend)
+
+
 
 ## Installation
 
@@ -53,9 +53,10 @@ Results are ranked based on their TF-IDF scores to provide the most relevant res
    ```bash
    pip install -r requirements.txt
 
-4. Run the server:
+4. Run the server: 
    ```bash
-   py main.py
+   uvicorn main:app --reload
+   
 
 
 
