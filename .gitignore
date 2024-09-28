@@ -5,4 +5,8 @@ __pycache__/
 # Virtual environment
 venv/
 env/
-vscode/
+
+upload/docx/
+upload/pdf/
+
+.env

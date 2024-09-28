@@ -45,6 +45,7 @@ Results are ranked based on their TF-IDF scores to provide the most relevant res
      ```bash
      python -m venv venv
      venv\Scripts\activate
+     
    - For Linux/MacOS:
      ```bash
      python3 -m venv venv
