@@ -12,9 +12,7 @@ from docx2pdf import convert
 import fitz  # PyMuPDF
 stop_words = thai_stopwords()
 # Define directories for temporary storage
-UPLOAD_DIR = r"D:\thesis_search_backend\upload\temp"
-PDF_DIR = os.path.join(UPLOAD_DIR, 'pdf')
-DOCX_DIR = os.path.join(UPLOAD_DIR, 'doc')
+
 
 def identity_func(text):
     return text
@@ -78,6 +76,13 @@ def extract_text_from_page(pdf_path, page_number):
 
 
 def getAbstractPagePDF(pdf_path):
+    """
+    Args:
+        pdf_path (str): The path to the PDF file.
+
+    Returns:
+        str: The text from the abstract page if found, otherwise an empty string.
+    """
     document = fitz.open(pdf_path)
 
     # ตรวจสอบว่ามีหน้าในเอกสารหรือไม่

@@ -16,6 +16,8 @@ from math import log
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
+from utils.preprocess import perform_removal,get_customDict
+
 search_router = APIRouter()
 
 
@@ -111,12 +113,19 @@ async def advanced_search(query: str, db: Session = Depends(get_db)):
 
     start_time = time.time()
     # Tokenize the query
-    query_tokens = word_tokenize(query, engine='newmm')
-    query_terms = list(set(query_tokens))  # Remove duplicate terms
+    custom_dicts = get_customDict()
 
-    query_terms = sorted(query_terms, key=lambda x: query_tokens.index(x) if x in query_tokens else float('inf'))
+    # Tokenize the query and remove stop words
+    query_seg = word_tokenize(query, custom_dict=custom_dicts, keep_whitespace=False, engine='newmm')
+    query_seg = list(map(perform_removal, query_seg))  # Remove unwanted terms (stop words, etc.)
+    filtered_query_terms = list(filter(lambda word: word != '', query_seg))  # Filter out empty strings
 
-     
+    # Remove duplicate terms and sort based on the original query order
+    query_terms = list(set(filtered_query_terms))  # Remove duplicate terms
+
+    # For sorting query terms based on their first occurrence in the original tokenized list
+    query_terms = sorted(query_terms, key=lambda x: query_seg.index(x) if x in query_seg else float('inf'))
+
     # Get all thesis documents that have been rechecked (recheck_status = 1)
     documents = db.query(ThesisDocument).filter(
         ThesisDocument.recheck_status == 1).all()

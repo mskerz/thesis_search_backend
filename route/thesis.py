@@ -5,19 +5,15 @@ import os
 import shutil
 from typing import List
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile, status
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
-from middleware.authentication import verify_password, create_access_token, hash_password, get_current_user, JWT_EXPIRATION_MINUTES
-from utils.preprocess import perform_removal, read_abstract_from_docx, extract_text_from_page, docx_to_pdf, PDF_DIR, DOCX_DIR
+from fastapi.responses import FileResponse,  JSONResponse, StreamingResponse
+from middleware.authentication import  get_current_user
+from utils.preprocess import perform_removal, read_abstract_from_docx, docx_to_pdf, getAbstractPagePDF,get_customDict
 from model.advisor import Advisor
 from model.user import User
 from model.thesis import Term, ThesisResponse, ThesisCheckResponse, ThesisDocument, ThesisDocumentFormat as Thesis, ThesisFile
 from pydantic import ValidationError
-from config.db_connect import get_db, session, SessionLocal
-from docx import Document
-from docx2pdf import convert
-from reportlab.pdfgen import canvas
-from reportlab.lib.pagesizes import letter
-from urllib.parse import quote
+from config.db_connect import get_db, session
+
 from pythainlp.tokenize import word_tokenize
 from sqlalchemy.exc import IntegrityError
 import io
@@ -281,13 +277,14 @@ async def recheck(doc_id: int, status: int = Query(None), current_user: User = D
     file_path = os.path.join(os.getcwd(), "upload",
                              "docx", file_document.file_name)
     pdf_path = os.path.join(os.getcwd(), "upload", "pdf",
-                            file_document.filename.replace(".docx", ".pdf"))
+                            file_document.file_name.replace(".docx", ".pdf"))
 
     # Extract text from the specified page
-    docx_text = extract_text_from_page(pdf_path, page_number=4)  # หน้าบทคัดย่อ
+    docx_text =getAbstractPagePDF(pdf_path=pdf_path)  # หน้าบทคัดย่อ
 
+    custom_dicts = get_customDict()
     # Tokenize the content and remove stop words
-    word_seg = word_tokenize(docx_text, keep_whitespace=False, engine='newmm')
+    word_seg = word_tokenize(docx_text,custom_dict=custom_dicts, keep_whitespace=False, engine='newmm')
     word_seg = list(map(perform_removal, word_seg))
     filtered_words = list(filter(lambda word: word != '', word_seg))
     # Calculate term frequency manually
