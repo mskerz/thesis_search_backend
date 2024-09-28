@@ -1,0 +1,40 @@
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+import uvicorn
+from route.auth import router as auth_router
+from route.role import role_router
+from route.advisor import advisor_router
+from route.thesis import thesis_router
+from route.search import search_router
+import os
+from dotenv import load_dotenv
+load_dotenv()
+app = FastAPI()
+
+
+# app.get('/x')
+# async def index():
+#     return {"message":"welcome to server"}
+
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(auth_router,prefix="/api") 
+app.include_router(role_router,prefix="/api")
+app.include_router(advisor_router,prefix="/api")
+app.include_router(thesis_router,prefix="/api")
+app.include_router(search_router,prefix="/api")
+## uvicorn main:app --reload 
+
+if __name__ == "__main__":
+    try:
+        uvicorn.run("main:app",host="0.0.0.0", port=8000, reload=True)
+    except KeyboardInterrupt:
+        print("KeyboardInterrupt detected. Stopping the server gracefully.")
+        
