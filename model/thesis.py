@@ -20,8 +20,9 @@ class ThesisDocument(Base):
     abstract = Column(Text)
     recheck_status =Column(Integer,default=0)
     deleted_at = Column(DateTime, nullable=True)
+    updated_at = Column(DateTime, nullable=True,)
     created_at = Column(DateTime, nullable=True,default=datetime.now())
-
+    
 
 
 class ThesisFile(Base):
@@ -60,17 +61,13 @@ class ThesisDocumentFormat(BaseModel):
     author_name:str
     advisor_name:str
     year:int
+    recheck_status: Optional[int] = None  # ใช้ Optional เพื่อให้เป็นค่า None ได้
     abstract:str
 
 
 
-class ThesisResponse(BaseModel):
-    doc_id:int
-    title_th: str
-    title_en: str
-    advisor_id: int
-    year: int
+ 
 
 class ThesisCheckResponse(BaseModel):
-    has_thesis: bool
-    thesis: Optional[ThesisResponse] = None
+    has_deleted: bool
+    thesis: Optional[ThesisDocumentFormat] = None

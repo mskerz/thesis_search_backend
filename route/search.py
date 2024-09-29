@@ -178,7 +178,7 @@ async def advanced_search(query: str, db: Session = Depends(get_db)):
     return {"message": "OK", "status": 200,"time_used":elapsed_time,"query_terms": query_terms, "results": search_results}
 
 
-# ยังไม่เสร็จ
+# ยังไม่เสร็จ use vector space
 @search_router.get('/user/advanced_search_v1', tags=['Search'])
 async def advanced_search_v1(search_query: str, db: Session = Depends(get_db)):
     """

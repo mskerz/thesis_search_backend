@@ -44,16 +44,18 @@ def read_abstract_from_docx(doc) -> str:
     # Extract text from paragraphs
     extracted_text = ""
     start_reading = False
+    found_abstract = False
     for paragraph in docx_content.paragraphs:
         if "บทคัดย่อ" in paragraph.text:
             start_reading = True
+            found_abstract = True
             continue
         if start_reading:
             extracted_text += paragraph.text.strip() + "\n"
             if "ข" in paragraph.text:
                 break
 
-    return extracted_text.strip()
+    return extracted_text.strip() if found_abstract else ""
 
 
 

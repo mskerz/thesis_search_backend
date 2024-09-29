@@ -10,7 +10,7 @@ from middleware.authentication import  get_current_user
 from utils.preprocess import perform_removal, read_abstract_from_docx, docx_to_pdf, getAbstractPagePDF,get_customDict
 from model.advisor import Advisor
 from model.user import User
-from model.thesis import Term, ThesisResponse, ThesisCheckResponse, ThesisDocument, ThesisDocumentFormat as Thesis, ThesisFile
+from model.thesis import Term, ThesisCheckResponse, ThesisDocument, ThesisDocumentFormat as Thesis, ThesisFile
 from pydantic import ValidationError
 from config.db_connect import get_db, session
 
@@ -93,24 +93,40 @@ async def check_thesis(
     current_user: User = Depends(get_current_user),
     db: session = Depends(get_db)
 ):
-    thesis = db.query(ThesisDocument).filter(
-        ThesisDocument.user_id == current_user.user_id).first()
     if current_user.access_role != 0:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Permission denied")
+            status_code=status.HTTP_403_FORBIDDEN, detail="Permission denied")   
+    thesis = db.query(ThesisDocument).filter(
+        ThesisDocument.user_id == current_user.user_id).first()
+    
+        # หากไม่พบ thesis ให้คืนค่า has_thesis เป็น False
+    if not thesis:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="File not found")
+    
+    
+    
+    thesis_file = db.query(ThesisFile).filter(ThesisFile.doc_id == thesis.doc_id).first()
+    advisor = db.query(Advisor).filter(Advisor.advisor_id == thesis.advisor_id).first()
+    hasDelete = False
 
-    if thesis:
-        return ThesisCheckResponse(
-            has_thesis=True,
-            thesis=ThesisResponse(
+    pdfpath = os.path.join(os.getcwd(), "upload", "pdf",thesis_file.file_name.replace(".docx", ".pdf"))
+    
+    # ตรวจสอบว่าไฟล์ถูกปฏิเสธหรือไม่
+    hasDelete = not os.path.exists(pdfpath) and thesis.recheck_status == 2
+ 
+    return ThesisCheckResponse(
+            has_deleted=hasDelete,
+            thesis=Thesis(
                 doc_id=thesis.doc_id,
                 title_th=thesis.title_th,
                 title_en=thesis.title_en,
-                advisor_id=thesis.advisor_id,
-                year=thesis.year
+                author_name=f"{current_user.firstname} {current_user.lastname}",
+                advisor_name=advisor.advisor_name,
+                recheck_status= thesis.recheck_status,
+                year=thesis.year,
+                abstract=thesis.abstract
             )
         )
-    return ThesisCheckResponse(has_thesis=False)
 
 
 @thesis_router.post('/student/import-thesis', tags=['Student Role Access'])
@@ -151,7 +167,7 @@ async def import_thesis(
             advisor_id=advisor_id,
             year=year,
             abstract=abstract
-        
+            
         )
         db.add(import_thesis)
         db.commit()
@@ -170,6 +186,7 @@ async def import_thesis(
         return {"message": "Thesis imported successfully"}
 
     except Exception as e:
+        print(e)
         return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, content={"error": str(e)})
 
 
@@ -223,43 +240,6 @@ async def show_recheck_list(current_user: User = Depends(get_current_user), db: 
     # docx preview request show file
 
 
-@thesis_router.get('/file-preview/{file_name}', tags=['Admin Management'])
-async def file_preview(file_name: str, current_user: User = Depends(get_current_user), db: session = Depends(get_db)):
-    """
-    Preview file content for the given file name.
-
-    Args:
-        file_name (str): The name of the file to be previewed.
-        current_user (User): The current authenticated user. Automatically provided by the dependency.
-        db (Session): The database session. Automatically provided by the dependency.
-
-    Returns:
-        FileResponse: The response containing the file to be previewed.
-
-    Raises:
-        HTTPException: If the file is not found in the database or on the disk.
-    """
-    if current_user.access_role != 1:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Permission denied")
-
-     # Check if file exists in the database
-    thesis_file = db.query(ThesisFile).filter(
-        ThesisFile.file_name == file_name).first()
-    if not thesis_file:
-        raise HTTPException(status_code=404, detail="File not found")
-
-    # Construct the file path
-    
-    path = os.path.join(os.getcwd(), "upload", "pdf", file_name)
-
-
-    # Check if file exists on disk
-    if not os.path.exists(path):
-        raise HTTPException(status_code=404, detail="File not found on disk")
-
-    # Return file as response
-    return FileResponse(path=path, filename=file_name, media_type='application/pdf')
 
 
 @thesis_router.put('/recheck-thesis/{doc_id}/', tags=['Admin Management'])
@@ -303,11 +283,12 @@ async def recheck(doc_id: int, status: int = Query(None), current_user: User = D
                 # Handle case where term already exists (assuming term is unique)
                 pass
         thesis_document.recheck_status = status
+        thesis_document.updated_at = datetime.now()
         db.commit()
     elif status == 2:  # Delete document
         # delete ThesisDocument where doc_id == doc_id
-        thailand_timezone = timezone(timedelta(hours=7))
-        thesis_document.deleted_at = datetime.now(thailand_timezone)
+        thesis_document.recheck_status = status
+        thesis_document.deleted_at = datetime.now()
         db.commit() 
  
         # Delete the file from the system
