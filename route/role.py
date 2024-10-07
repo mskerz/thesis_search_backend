@@ -106,15 +106,24 @@ async def delete_thesis(doc_id: int, current_user: User = Depends(get_current_us
     if current_user.access_role != 1:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permission denied")
     
-    # Fetch the existing thesis entry from the database
-    thesis = db.query(ThesisDocument).filter(ThesisDocument.doc_id == doc_id).first()
-    if not thesis:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Thesis not found")
+    try:
+        # Fetch the existing thesis entry from the database
+        thesis = db.query(ThesisDocument).filter(ThesisDocument.doc_id == doc_id).first()
+        
+        if not thesis:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Thesis not found")
+        
+        # Delete the thesis
+        db.delete(thesis)
+        
+        # Commit the changes to the database
+        db.commit()
+        
+        return {"message": "Thesis deleted successfully"}
     
-    # Delete the thesis
-    db.delete(thesis)
-    
-    # Commit the changes to the database
-    db.commit()
-    
-    return {"message": "Thesis deleted successfully"}
+    except Exception as e:
+        # Log the error for debugging (optional)
+        print(f"Error occurred while deleting thesis: {str(e)}")
+        
+        # Raise a 500 Internal Server Error with a generic message
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="An error occurred while deleting the thesis")
