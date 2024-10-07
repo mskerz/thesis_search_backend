@@ -2,6 +2,7 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException,status
 from config.db_connect import get_db
 from middleware.authentication import get_current_user
+from model.thesis import ThesisFormRequest,ThesisDocument
 from model.user import User
 from model.student import Student
 from sqlalchemy.orm import Session
@@ -74,3 +75,46 @@ async def change_role(user_id: int, current_user: User = Depends(get_current_use
     student.access_role = 1
     db.commit()
     return {"message": "Role changed successfully","status_code":status.HTTP_200_OK}
+
+@role_router.put('/edit-thesis/{doc_id}',tags=['Admin Management'])
+async def edit_thesis(doc_id:int,thesis_Edit:ThesisFormRequest,current_user:User = Depends(get_current_user),  db: Session = Depends(get_db)):
+    """Edit"""
+    if current_user.access_role != 1:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permission denied")
+    
+    # Fetch the existing thesis entry from the database
+    thesis = db.query(ThesisDocument).filter(ThesisDocument.doc_id == doc_id).first()
+    if not thesis:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Thesis not found")
+    
+    # Update the thesis fields with the new data if it's not empty, otherwise use the current value
+    thesis.title_th = thesis_Edit.title_th if thesis_Edit.title_th.strip() else thesis.title_th
+    thesis.title_en = thesis_Edit.title_en if thesis_Edit.title_en.strip() else thesis.title_en
+    thesis.advisor_id = thesis_Edit.advisor_id if thesis_Edit.advisor_id else thesis.advisor_id
+    thesis.year = thesis_Edit.year if thesis_Edit.year else thesis.year
+    
+    # Commit the changes to the database
+    db.commit()
+    return {"message": "Thesis updated successfully", "thesis": thesis}
+
+
+
+@role_router.delete('/delete-thesis/{doc_id}', tags=['Admin Management'])
+async def delete_thesis(doc_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Delete"""
+    # Check if the current user has admin access
+    if current_user.access_role != 1:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permission denied")
+    
+    # Fetch the existing thesis entry from the database
+    thesis = db.query(ThesisDocument).filter(ThesisDocument.doc_id == doc_id).first()
+    if not thesis:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Thesis not found")
+    
+    # Delete the thesis
+    db.delete(thesis)
+    
+    # Commit the changes to the database
+    db.commit()
+    
+    return {"message": "Thesis deleted successfully"}

@@ -4,8 +4,8 @@ from datetime import datetime, timedelta, timezone
 import os
 import shutil
 from typing import List
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile, status
-from fastapi.responses import FileResponse,  JSONResponse, StreamingResponse
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, Response, UploadFile, status
+from fastapi.responses import FileResponse,  JSONResponse
 from middleware.authentication import  get_current_user
 from utils.preprocess import perform_removal, read_abstract_from_docx, docx_to_pdf, getAbstractPagePDF,get_customDict
 from model.advisor import Advisor
@@ -22,6 +22,9 @@ from utils.create_watermark import  WaterMark
 
 
 thesis_router = APIRouter()
+
+
+
 
 
 @thesis_router.get('/thesis-description/{doc_id}', tags=['User in System'], response_model=Thesis)
@@ -52,7 +55,7 @@ async def read_thesis(doc_id: int, db: session = Depends(get_db)):
 
 
 @thesis_router.get('/download-file/{doc_id}', tags=['User in System'])
-async def download_file(doc_id: int, current_user: User = Depends(get_current_user), db: session = Depends(get_db)):
+async def download_file(doc_id: int, background_tasks: BackgroundTasks,current_user: User = Depends(get_current_user), db: session = Depends(get_db)):
     if not current_user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized!")
@@ -80,11 +83,14 @@ async def download_file(doc_id: int, current_user: User = Depends(get_current_us
     # ตรวจสอบว่าไฟล์ watermark ถูกสร้างหรือไม่
     if not os.path.exists(output_watermark_path):
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error creating watermark")
+    # ส่งไฟล์ PDF ที่มี watermark กลับไปยังผู้ใช้ พร้อมลบไฟล์ชั่วคราวหลังจากการส่ง
+    response = FileResponse(output_watermark_path, media_type='application/pdf', filename=os.path.basename(output_watermark_path))
 
-    # ส่งไฟล์ PDF ที่มี watermark กลับไปยังผู้ใช้
-    return FileResponse(output_watermark_path, media_type='application/pdf', filename=os.path.basename(output_watermark_path))
-
-    
+    # ลบไฟล์หลังจากการส่ง
+    # ลบไฟล์หลังจากการส่งด้วย BackgroundTasks
+    background_tasks.add_task(os.remove, output_watermark_path)
+    return response
+     
 
  
 

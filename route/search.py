@@ -16,6 +16,7 @@ from math import log
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
+from utils.doc_efficiency import Efficient
 from utils.preprocess import perform_removal,get_customDict
 
 search_router = APIRouter()
@@ -33,7 +34,10 @@ def calculate_idf(doc_count: int, doc_freq: int) -> float:
 
 
 @search_router.get('/simple-search/{field}/{keyword}', tags=['Search'])
-async def simple_search(field: str, keyword: str, db: Session = Depends(get_db)):
+async def simple_search(
+    field: str, 
+    keyword: str, 
+    db: Session = Depends(get_db)):
     """
     Search thesis documents by field and query.
 
@@ -150,6 +154,7 @@ async def advanced_search(query: str, db: Session = Depends(get_db)):
 
         # Calculate TF-IDF score for the current document
         tf_idf_score = 0.0
+        relevant = all(term in [t.term for t in terms] for term in query_terms)  # ใช้ terms แทน
         for term in query_terms:
             tf = term_freq.get(term, 0) / sum(term_freq.values())
             tf_idf_score += tf * idf.get(term, 0)
@@ -164,90 +169,25 @@ async def advanced_search(query: str, db: Session = Depends(get_db)):
                 "author_name": f"{user.firstname} {user.lastname}",
                 "advisor_name": advisor.advisor_name if advisor else "N/A",
                 "year": doc.year,
-                "tf_idf_score": tf_idf_score
+                "tf_idf_score": tf_idf_score,
+                "relevant": relevant  # Flag for relevance
+
             })
 
     # Sort results by TF-IDF score in descending order
     search_results.sort(key=lambda x: x.get('tf_idf_score', 0), reverse=True)
+    search_evaluator = Efficient(search_results,k=6)
+    evaluation_metrics = search_evaluator.evaluate()
+
+
+    
+
 
     if not search_results:
-        return {"message": "Search Not Found ", "status": 404,"results": search_results}
+        return {"message": "Search Not Found ", "status": 404,"results": []}
 
     elapsed_time = time.time() - start_time
 
-    return {"message": "OK", "status": 200,"time_used":elapsed_time,"query_terms": query_terms, "results": search_results}
+    return {"message": "OK", "status": 200,"time_used":elapsed_time,"query_terms": query_terms, "results": search_results ,"efficiency": evaluation_metrics}
 
 
-# ยังไม่เสร็จ use vector space
-@search_router.get('/user/advanced_search_v1', tags=['Search'])
-async def advanced_search_v1(search_query: str, db: Session = Depends(get_db)):
-    """
-    Advanced search for thesis documents using TF-IDF and cosine similarity.
-
-    Args:
-        search_query (str): The search query.
-        current_user (User): The current authenticated user. Automatically provided by the dependency.
-        db (Session): The database session. Automatically provided by the dependency.
-
-    Returns:
-        List[ThesisList]: The list of matching thesis documents with TF-IDF scores.
-
-    Raises:
-        HTTPException: If no results are found.
-    """
-
-    start_time = time.time()
-
-    # Get all thesis documents that have been rechecked (recheck_status = 1)
-    documents = db.query(ThesisDocument).filter(
-        ThesisDocument.recheck_status == 1).all()
-
-    if not documents:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-                            detail="No matching thesis documents found")
-
-    # Prepare data for TF-IDF vectorizer
-    doc_texts = []
-    doc_metadata = []
-    for doc in documents:
-        terms = db.query(Term).filter(Term.doc_id == doc.doc_id).all()
-        text = ' '.join([term.term for term in terms])
-        doc_texts.append(text)
-        user = db.query(User).filter(User.user_id == doc.user_id).first()
-        advisor = db.query(Advisor).filter(
-            Advisor.advisor_id == doc.advisor_id).first()
-        doc_metadata.append({
-            "doc_id": doc.doc_id,
-            "title_th": doc.title_th,
-            "author_name": f"{user.firstname} {user.lastname}",
-            "advisor_name": advisor.advisor_name if advisor else "N/A",
-            "year": doc.year
-        })
-
-    # Vectorize the document texts
-    tfidf_vectorizer = TfidfVectorizer()
-    tfidf_vector = tfidf_vectorizer.fit_transform(doc_texts)
-
-    # Tokenize the query
-    query_seg = word_tokenize(search_query, keep_whitespace=False)
-    query_text = ' '.join(query_seg)
-    query_vector = tfidf_vectorizer.transform([query_text])
-
-    # Calculate cosine similarity
-    similarities = cosine_similarity(tfidf_vector, query_vector).flatten()
-
-    # Combine metadata with similarities
-    for i, meta in enumerate(doc_metadata):
-        meta['tf_idf_score'] = similarities[i]
-
-    # Filter and sort results by TF-IDF score
-    search_results = [
-        meta for meta in doc_metadata if meta['tf_idf_score'] > 0]
-    search_results.sort(key=lambda x: x['tf_idf_score'], reverse=True)
-
-    if not search_results:
-        return {"message": "Search Not Found ", "status": 404,"results": search_results}
-
-    elapsed_time = time.time() - start_time
-
-    return {"message": "OK", "status": 200,"time_used":elapsed_time , "results": search_results}
