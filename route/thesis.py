@@ -7,7 +7,7 @@ from typing import List
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, Response, UploadFile, status
 from fastapi.responses import FileResponse,  JSONResponse
 from middleware.authentication import  get_current_user
-from utils.preprocess import perform_removal, read_abstract_from_docx, docx_to_pdf, getAbstractPagePDF,get_customDict
+from utils.preprocess import perform_removal, read_abstract_from_docx, docx_to_pdf, getAbstractPagePDF,get_customDict, read_abstract_from_pdf
 from model.advisor import Advisor
 from model.user import User
 from model.thesis import Term, ThesisCheckResponse, ThesisDocument, ThesisDocumentFormat as Thesis, ThesisFile
@@ -27,7 +27,7 @@ thesis_router = APIRouter()
 
 
 
-@thesis_router.get('/thesis-description/{doc_id}', tags=['User in System'], response_model=Thesis)
+@thesis_router.get('/description/{doc_id}', tags=['User in System'], response_model=Thesis)
 async def read_thesis(doc_id: int, db: session = Depends(get_db)):
 
     # join
@@ -103,14 +103,17 @@ async def check_thesis(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Permission denied")   
     thesis = db.query(ThesisDocument).filter(
-        ThesisDocument.user_id == current_user.user_id).first()
+        ThesisDocument.deleted_at == None,
+        ThesisDocument.user_id == current_user.user_id).order_by(ThesisDocument.created_at.desc()).first()
     
         # หากไม่พบ thesis ให้คืนค่า has_thesis เป็น False
     if not thesis:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="File not found")
+        return ThesisCheckResponse(
+            has_thesis=False,
+        )
     
     
-    
+ 
     thesis_file = db.query(ThesisFile).filter(ThesisFile.doc_id == thesis.doc_id).first()
     advisor = db.query(Advisor).filter(Advisor.advisor_id == thesis.advisor_id).first()
     hasDelete = False
@@ -121,6 +124,7 @@ async def check_thesis(
     hasDelete = not os.path.exists(pdfpath) and thesis.recheck_status == 2
  
     return ThesisCheckResponse(
+            has_thesis=True,
             has_deleted=hasDelete,
             thesis=Thesis(
                 doc_id=thesis.doc_id,
@@ -135,7 +139,7 @@ async def check_thesis(
         )
 
 
-@thesis_router.post('/student/import-thesis', tags=['Student Role Access'])
+@thesis_router.post('/user/import-thesis', tags=['Student Role Access'])
 async def import_thesis(
     title_th: str = Form(...),
     title_en: str = Form(...),
@@ -145,55 +149,96 @@ async def import_thesis(
     current_user: User = Depends(get_current_user),
     db: session = Depends(get_db)
 ):
+    
+    """
+    Import a thesis document, either in .docx or .pdf format, and save it to the database.
 
+    Args:
+        title_th (str): The title of the thesis in Thai.
+        title_en (str): The title of the thesis in English.
+        advisor_id (int): The ID of the thesis advisor.
+        year (int): The year the thesis was written.
+        file (UploadFile): The uploaded thesis file, either .docx or .pdf format.
+        current_user (User): The current user uploading the thesis (must have student role access).
+        db (session): The database session used to interact with the database.
+
+    Description:
+        This function handles the import of a thesis document. If the uploaded file is in .docx format, 
+        it will be saved, the abstract will be extracted, and the file will be converted to PDF.
+        If the file is in .pdf format, the PDF will be saved, and the abstract will be extracted directly from the PDF.
+        The function then saves the thesis information and the file details to the database.
+
+    Returns:
+        dict: A message indicating whether the thesis was imported successfully or an error message if it fails.
+    """
     if current_user.access_role != 0:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Permission denied")
         # บันทึกไฟล์
 
-    file_location = os.path.join(os.getcwd(), "upload", "docx", file.filename)
-    pdf_location = os.path.join(
-        os.getcwd(), "upload", "pdf", file.filename.replace(".docx", ".pdf"))
-    with open(file_location, "wb+") as file_object:
-        shutil.copyfileobj(file.file, file_object)
-    # content = await file.read()
+    upload_folder = os.path.join(os.getcwd(),"upload");
+    pdf_location = ''
+    file_location = ''  # Ensure both variables are initialized
+    if file.filename.endswith('.docx'):
+        pdf_location = os.path.join(upload_folder, "pdf",file.filename.replace(".docx", ".pdf"))
+        file_location = os.path.join(upload_folder, file.filename)
+        # บันทึก DOCX
+        with open(file_location, "wb+") as file_object:
+            shutil.copyfileobj(file.file, file_object)
+        # อ่านข้อมูลจากไฟล์ DOCX
+        with open(file_location, "rb") as file_object:
+            content = file_object.read()
 
-    with open(file_location, "rb") as file_object:
-        content = file_object.read()
+        try:
+            # อ่าน abstract จาก DOCX
+            abstract = read_abstract_from_docx(content)
 
-    try:
+            # แปลง DOCX เป็น PDF
+            docx_to_pdf(file_location, pdf_location)
 
-        abstract = read_abstract_from_docx(content)
+        except Exception as e:
+            return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, content={"error": str(e)})
 
-        # สร้างข้อมูลวิทยานิพนธ์
-        import_thesis = ThesisDocument(
-            title_th=title_th,
-            title_en=title_en,
-            user_id=current_user.user_id,
-            advisor_id=advisor_id,
-            year=year,
-            abstract=abstract
-            
-        )
-        db.add(import_thesis)
-        db.commit()
-        db.refresh(import_thesis)
-        # แปลง DOCX เป็น PDF
-        docx_to_pdf(file_location, pdf_location)
-        # อัพเดตข้อมูลไฟล์ในฐานข้อมูล
-        thesis_file = ThesisFile(
-            doc_id=import_thesis.doc_id,
-            file_name=file.filename,
-            file_path=file_location
-        )
-        db.add(thesis_file)
-        db.commit()
 
-        return {"message": "Thesis imported successfully"}
+    elif file.filename.endswith('.pdf'):
+        ""
+        pdf_folder = os.path.join(upload_folder, "pdf")
+        pdf_location = os.path.join(pdf_folder, file.filename)
 
-    except Exception as e:
-        print(e)
-        return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, content={"error": str(e)})
+         # บันทึกไฟล์ PDF
+        with open(pdf_location, "wb+") as file_object:
+            shutil.copyfileobj(file.file, file_object)
+        try:
+            # อ่าน abstract จาก PDF
+            abstract = read_abstract_from_pdf(pdf_location)
+
+        except Exception as e:
+            return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, content={"error": str(e)})
+    
+    
+    # สร้างข้อมูลวิทยานิพนธ์
+    import_thesis = ThesisDocument(
+        title_th=title_th,
+        title_en=title_en,
+        user_id=current_user.user_id,
+        advisor_id=advisor_id,
+        year=year,
+        abstract=abstract
+    )
+    db.add(import_thesis)
+    db.commit()
+    db.refresh(import_thesis)
+
+    # อัพเดตข้อมูลไฟล์ในฐานข้อมูล
+    thesis_file = ThesisFile(
+        doc_id=import_thesis.doc_id,
+        file_name=file.filename,
+        file_path=pdf_location
+    )
+    db.add(thesis_file)
+    db.commit()
+
+    return {"message": "Thesis imported successfully","status": 200}
 
 
 # Docx Recheck
@@ -214,8 +259,8 @@ async def show_recheck_list(current_user: User = Depends(get_current_user), db: 
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Permission denied")
 
-    documents = db.query(ThesisDocument).order_by(
-        ThesisDocument.created_at.desc()).all()
+    documents = db.query(ThesisDocument).filter(ThesisDocument.deleted_at == None).order_by(
+        ThesisDocument.updated_at.desc()).all()
     results = []
     if not documents:
         raise HTTPException(
@@ -229,7 +274,7 @@ async def show_recheck_list(current_user: User = Depends(get_current_user), db: 
             ThesisFile.doc_id == document.doc_id).first()
 
         if not user or not advisor or not file:
-            continue
+            continue 
 
         results.append({
             "idx": idx,
@@ -292,9 +337,8 @@ async def recheck(doc_id: int, status: int = Query(None), current_user: User = D
         thesis_document.updated_at = datetime.now()
         db.commit()
     elif status == 2:  # Delete document
-        # delete ThesisDocument where doc_id == doc_id
+        
         thesis_document.recheck_status = status
-        thesis_document.deleted_at = datetime.now()
         db.commit() 
  
         # Delete the file from the system

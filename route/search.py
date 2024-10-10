@@ -22,18 +22,18 @@ from utils.preprocess import perform_removal,get_customDict
 search_router = APIRouter()
 
 
-def calculate_tf(term_freq: int, total_terms: int) -> float:
-    return Decimal(term_freq / total_terms)
+# def calculate_tf(term_freq: int, total_terms: int) -> float:
+#     return Decimal(term_freq / total_terms)
 
 
-def calculate_idf(doc_count: int, doc_freq: int) -> float:
+# def calculate_idf(doc_count: int, doc_freq: int) -> float:
 
-    return Decimal(log((doc_count) / (doc_freq)))
-
-
+#     return Decimal(log((doc_count) / (doc_freq)))
 
 
-@search_router.get('/simple-search/{field}/{keyword}', tags=['Search'])
+
+
+@search_router.get('/search/simple/{field}/{keyword}', tags=['Search'])
 async def simple_search(
     field: str, 
     keyword: str, 
@@ -54,8 +54,9 @@ async def simple_search(
         HTTPException: If the field is not valid or no results are found.
     """
     # Base query for rechecked documents
-    base_query = db.query(ThesisDocument).filter(
-        ThesisDocument.recheck_status == 1)
+    base_query = db.query(ThesisDocument).filter( 
+        ThesisDocument.recheck_status == 1, 
+        ThesisDocument.deleted_at == None )
     # Search logic
     if field == 'title_th':
         results = base_query.filter(
@@ -98,8 +99,8 @@ async def simple_search(
     return {"message": "OK", "status": 200, "results": search_result}
 
 
-@search_router.get('/advanced-search', tags=['Search'])
-async def advanced_search(query: str, db: Session = Depends(get_db)):
+@search_router.get('/search/advance/{words}', tags=['Search'])
+async def advanced_search(words: str, db: Session = Depends(get_db)):
     """
     Advanced search for thesis documents using TF-IDF.
 
@@ -120,7 +121,7 @@ async def advanced_search(query: str, db: Session = Depends(get_db)):
     custom_dicts = get_customDict()
 
     # Tokenize the query and remove stop words
-    query_seg = word_tokenize(query, custom_dict=custom_dicts, keep_whitespace=False, engine='newmm')
+    query_seg = word_tokenize(words, custom_dict=custom_dicts, keep_whitespace=False, engine='newmm')
     query_seg = list(map(perform_removal, query_seg))  # Remove unwanted terms (stop words, etc.)
     filtered_query_terms = list(filter(lambda word: word != '', query_seg))  # Filter out empty strings
 
@@ -131,8 +132,12 @@ async def advanced_search(query: str, db: Session = Depends(get_db)):
     query_terms = sorted(query_terms, key=lambda x: query_seg.index(x) if x in query_seg else float('inf'))
 
     # Get all thesis documents that have been rechecked (recheck_status = 1)
-    documents = db.query(ThesisDocument).filter(
-        ThesisDocument.recheck_status == 1).all()
+    documents = db.query(ThesisDocument).filter( 
+        ThesisDocument.recheck_status == 1, 
+        ThesisDocument.deleted_at == None ).all()
+
+    
+    
 
     if not documents:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,

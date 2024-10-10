@@ -57,7 +57,44 @@ def read_abstract_from_docx(doc) -> str:
 
     return extracted_text.strip() if found_abstract else ""
 
+def read_abstract_from_pdf(pdf_path):
+    """
+    Extracts the text from the abstract page in a PDF.
 
+    Args:
+        pdf_path (str): The path to the PDF file.
+
+    Returns:
+        str: The text from the abstract page if found, otherwise an empty string.
+    """
+    document = fitz.open(pdf_path)
+
+    # ตรวจสอบว่ามีหน้าในเอกสารหรือไม่
+    if len(document) == 0:
+        document.close()
+        raise ValueError("No pages in PDF document.")
+    
+    # ตรวจสอบจำนวนหน้าในเอกสาร
+    num_pages = len(document)
+    
+    # ค้นหาหน้าบทคัดย่อ
+    for page_number in range(num_pages):
+        page = document.load_page(page_number)
+        text = page.get_text()
+        
+        # ตรวจสอบว่ามีคำว่า "บทคัดย่อ" อยู่ในข้อความหรือไม่
+        if "บทคัดย่อ" in text:
+            # ค้นหาตำแหน่งของ "บทคัดย่อ"
+            abstract_start_index = text.index("บทคัดย่อ") + len("บทคัดย่อ")
+            abstract_text = text[abstract_start_index:].strip()  # ตัดข้อความที่อยู่ก่อนหน้า
+            abstract_text = abstract_text.replace("\n", "")
+            
+            # คืนค่าข้อความที่พบในหน้าบทคัดย่อ
+            document.close()
+            return abstract_text  # คืนค่าเฉพาะบทคัดย่อ
+    
+    document.close()
+    return ""  # หากไม่พบหน้าบทคัดย่อ
 
 def docx_to_pdf(docx_path, pdf_path):
     convert(docx_path, pdf_path)
@@ -75,6 +112,7 @@ def extract_text_from_page(pdf_path, page_number):
         text = text[1:]
     
     return text
+
 
 
 def getAbstractPagePDF(pdf_path):

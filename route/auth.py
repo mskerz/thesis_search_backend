@@ -87,7 +87,7 @@ async def register(user_data: RegisterUser,db:session = Depends(get_db)):
     except ValidationError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.get("/verify_user",tags=["User Account Management"])
+@router.get("/user/verify",tags=["User Account Management"])
 async def verify_user(current_user: User = Depends(get_current_user)):
     """
     Endpoint to verify the current user and return user information.
@@ -120,7 +120,7 @@ async def verify_user(current_user: User = Depends(get_current_user)):
 
 
 
-@router.put('/change_info',tags=["User Account Management"])
+@router.put('/change-info',tags=["User Account Management"])
 async def change_info(info_data: ChangeInfoUser, current_user: User = Depends(get_current_user)):
     """
     Changes the user's email, first name, and last name.
@@ -161,7 +161,7 @@ async def change_info(info_data: ChangeInfoUser, current_user: User = Depends(ge
 
 
 
-@router.put('/change_password',tags=["User Account Management"])
+@router.put('/change-password',tags=["User Account Management"])
 async def change_password(change_password_data:ChangePasswordUser,current_user: User = Depends(get_current_user)):
     """
         Changes the user's password.
@@ -187,12 +187,13 @@ async def change_password(change_password_data:ChangePasswordUser,current_user: 
 
 
 
-@router.post('/forgot_password',tags=["User Account Management"])
+@router.post('/forgot-password',tags=["User Account Management"])
 async def forgot_password(request_email:SendToken, db: session = Depends(get_db)):
     user = db.query(User).filter(User.email == request_email.email).first()
     if user is None:
         raise HTTPException(status_code=404, detail="Email not found")   
         # Generate token
+    
     
     token =  encode_email_token(request_email.email)
     sendEmail(receiver_email=request_email.email,token=token)
@@ -225,7 +226,7 @@ async def forgot_password(request_email:SendToken, db: session = Depends(get_db)
 #     sendEmail(receiver_email=email,token=token)
 #     return {'message': 'Email sent successfully',"status_code":status.HTTP_200_OK}
 
-@router.put('/new_password',tags=["User Account Management"])
+@router.put('/new-password',tags=["User Account Management"])
 async def new_password(new_pwd: ResetNewPassword, db: session = Depends(get_db)):
     # Decode token to get email
     try:

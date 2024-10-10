@@ -6,7 +6,7 @@ from model.thesis import ThesisFormRequest,ThesisDocument
 from model.user import User
 from model.student import Student
 from sqlalchemy.orm import Session
-
+from datetime import datetime
 role_router = APIRouter()
 
 @role_router.get('/student-all',response_model=List[Student],tags=['Admin Management'])
@@ -44,7 +44,7 @@ async def get_std(current_user: User = Depends(get_current_user),db: Session = D
 
 
 
-@role_router.put('/change_role_student/{user_id}',tags=['Admin Management'])  ## user_id of student
+@role_router.put('/user/change-permission/{user_id}',tags=['Admin Management'])  ## user_id of student
 async def change_role(user_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
     Changes the access role of a user.
@@ -76,7 +76,22 @@ async def change_role(user_id: int, current_user: User = Depends(get_current_use
     db.commit()
     return {"message": "Role changed successfully","status_code":status.HTTP_200_OK}
 
-@role_router.put('/edit-thesis/{doc_id}',tags=['Admin Management'])
+
+@role_router.get('/thesis/id/{doc_id}',tags=['Admin Management'])
+async def get_thesis_one(doc_id:int,current_user:User= Depends(get_current_user), db: Session = Depends(get_db)):
+    """
+    get one thesis upload
+    """
+    if current_user.access_role != 1:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permission denied")
+        # Fetch the existing thesis entry from the database
+    thesis = db.query(ThesisDocument).filter(ThesisDocument.doc_id == doc_id).first()
+    if not thesis:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Thesis not found")
+    
+    return {"doc_id": thesis.doc_id,"title_th":thesis.title_th,"title_en":thesis.title_en,"advisor_id":thesis.advisor_id,"year":thesis.year}
+
+@role_router.put('/thesis/edit/{doc_id}',tags=['Admin Management'])
 async def edit_thesis(doc_id:int,thesis_Edit:ThesisFormRequest,current_user:User = Depends(get_current_user),  db: Session = Depends(get_db)):
     """Edit"""
     if current_user.access_role != 1:
@@ -95,11 +110,11 @@ async def edit_thesis(doc_id:int,thesis_Edit:ThesisFormRequest,current_user:User
     
     # Commit the changes to the database
     db.commit()
-    return {"message": "Thesis updated successfully", "thesis": thesis}
+    return {"message": "Thesis updated successfully", "status": 200}
 
 
 
-@role_router.delete('/delete-thesis/{doc_id}', tags=['Admin Management'])
+@role_router.post('/thesis/delete/{doc_id}', tags=['Admin Management'])
 async def delete_thesis(doc_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """Delete"""
     # Check if the current user has admin access
@@ -114,7 +129,7 @@ async def delete_thesis(doc_id: int, current_user: User = Depends(get_current_us
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Thesis not found")
         
         # Delete the thesis
-        db.delete(thesis)
+        thesis.deleted_at = datetime.now();
         
         # Commit the changes to the database
         db.commit()

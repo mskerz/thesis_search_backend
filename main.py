@@ -25,11 +25,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(auth_router,prefix="/api") 
-app.include_router(role_router,prefix="/api")
-app.include_router(advisor_router,prefix="/api")
-app.include_router(thesis_router,prefix="/api")
-app.include_router(search_router,prefix="/api")
+# สร้างลิสต์ของ routers
+routes_import = [
+    auth_router,
+    role_router,
+    advisor_router,
+    thesis_router,
+    search_router
+]
+
+
+for router in routes_import:
+    app.include_router(router, prefix="/api")
+
+
 ## uvicorn main:app --reload 
 
 if __name__ == "__main__":
