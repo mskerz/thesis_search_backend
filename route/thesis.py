@@ -103,6 +103,7 @@ async def check_thesis(
         ThesisDocument.user_id == current_user.user_id).order_by(ThesisDocument.created_at.desc()).first()
     
         # หากไม่พบ thesis ให้คืนค่า has_thesis เป็น False
+
     if not thesis:
         return ThesisCheckResponse(
             has_thesis=False,
@@ -112,16 +113,17 @@ async def check_thesis(
  
     thesis_file = db.query(ThesisFile).filter(ThesisFile.doc_id == thesis.doc_id).first()
     advisor = db.query(Advisor).filter(Advisor.advisor_id == thesis.advisor_id).first()
-    hasDelete = False
 
     pdfpath = os.path.join(os.getcwd(), "upload", "pdf",thesis_file.file_name.replace(".docx", ".pdf"))
     
     # ตรวจสอบว่าไฟล์ถูกปฏิเสธหรือไม่
-    hasDelete = not os.path.exists(pdfpath) and thesis.recheck_status == 2
+    hasFileDelete = not os.path.exists(pdfpath)
+    hasReject = thesis.recheck_status == 2
  
     return ThesisCheckResponse(
             has_thesis=True,
-            has_deleted=hasDelete,
+            has_deleted=hasFileDelete,
+            has_rejected = hasReject,
             thesis=Thesis(
                 doc_id=thesis.doc_id,
                 title_th=thesis.title_th,

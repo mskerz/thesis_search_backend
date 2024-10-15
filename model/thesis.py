@@ -71,4 +71,5 @@ class ThesisDocumentFormat(BaseModel):
 class ThesisCheckResponse(BaseModel):
     has_deleted: bool = None
     has_thesis:bool = None
+    has_rejected:bool = None
     thesis: Optional[ThesisDocumentFormat] = None

@@ -118,6 +118,7 @@ async def advanced_search(words: str, db: Session = Depends(get_db)):
     """
 
     start_time = time.time()
+    
     # Tokenize the query
     custom_dicts = get_customDict()
 
@@ -161,7 +162,7 @@ async def advanced_search(words: str, db: Session = Depends(get_db)):
 
         # Calculate TF-IDF score for the current document
         tf_idf_score = 0.0
-        # relevant = all(term in [t.term for t in terms] for term in query_terms)  #
+
         for term in query_terms:
             tf = term_freq.get(term, 0) / sum(term_freq.values())
             tf_idf_score += tf * idf.get(term, 0)
@@ -177,14 +178,11 @@ async def advanced_search(words: str, db: Session = Depends(get_db)):
                 "advisor_name": advisor.advisor_name if advisor else "N/A",
                 "year": doc.year,
                 "tf_idf_score": tf_idf_score,
-                # "relevant": relevant  # Flag for relevance
 
             })
 
     # Sort results by TF-IDF score in descending order
     search_results.sort(key=lambda x: x.get('tf_idf_score', 0), reverse=True)
-    # search_evaluator = Efficient(search_results,k=15)
-    # evaluation_metrics = search_evaluator.evaluate()
 
 
     

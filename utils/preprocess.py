@@ -18,12 +18,13 @@ def identity_func(text):
     return text
 
 def perform_removal(word):
+
     word = word.strip()
     word = word.lower()
     word = word.translate(str.maketrans('', '', string.punctuation))
     unwanted_words = ['ก', 'ข']  # หน้า ก ข 
 
-    if word in stop_words or (word.isdigit() or word in unwanted_words and word not in ["2566", "2565"]):
+    if word in stop_words or (word.isdigit() or word in unwanted_words and word not in ["2566","2563"]):
         return ""  # ลบ stopword และตัวเลขที่ไม่ต้องการ
     else:
         return word
