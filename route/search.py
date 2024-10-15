@@ -1,4 +1,5 @@
 from collections import Counter
+import re
 import time
 from decimal import Decimal
 import math
@@ -121,6 +122,7 @@ async def advanced_search(words: str, db: Session = Depends(get_db)):
     custom_dicts = get_customDict()
 
     # Tokenize the query and remove stop words
+    words = re.sub(r'\b([A-Za-z]+)-([A-Za-z]+)\b', r'\1 \2', words)
     query_seg = word_tokenize(words, custom_dict=custom_dicts, keep_whitespace=False, engine='newmm')
     query_seg = list(map(perform_removal, query_seg))  # Remove unwanted terms (stop words, etc.)
     filtered_query_terms = list(filter(lambda word: word != '', query_seg))  # Filter out empty strings
@@ -159,7 +161,7 @@ async def advanced_search(words: str, db: Session = Depends(get_db)):
 
         # Calculate TF-IDF score for the current document
         tf_idf_score = 0.0
-        relevant = all(term in [t.term for t in terms] for term in query_terms)  # ใช้ terms แทน
+        # relevant = all(term in [t.term for t in terms] for term in query_terms)  #
         for term in query_terms:
             tf = term_freq.get(term, 0) / sum(term_freq.values())
             tf_idf_score += tf * idf.get(term, 0)
@@ -175,24 +177,24 @@ async def advanced_search(words: str, db: Session = Depends(get_db)):
                 "advisor_name": advisor.advisor_name if advisor else "N/A",
                 "year": doc.year,
                 "tf_idf_score": tf_idf_score,
-                "relevant": relevant  # Flag for relevance
+                # "relevant": relevant  # Flag for relevance
 
             })
 
     # Sort results by TF-IDF score in descending order
     search_results.sort(key=lambda x: x.get('tf_idf_score', 0), reverse=True)
-    search_evaluator = Efficient(search_results,k=6)
-    evaluation_metrics = search_evaluator.evaluate()
+    # search_evaluator = Efficient(search_results,k=15)
+    # evaluation_metrics = search_evaluator.evaluate()
 
 
     
 
 
     if not search_results:
-        return {"message": "Search Not Found ", "status": 404,"results": []}
+        return {"message": "Search Not Found ", "status": 404, "query_terms": query_terms,"results": []}
 
     elapsed_time = time.time() - start_time
 
-    return {"message": "OK", "status": 200,"time_used":elapsed_time,"query_terms": query_terms, "results": search_results ,"efficiency": evaluation_metrics}
+    return {"message": "OK", "status": 200,"time_used":elapsed_time,"query_terms": query_terms, "results": search_results }
 
 

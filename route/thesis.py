@@ -2,6 +2,7 @@ from collections import Counter
 from datetime import datetime, timedelta, timezone
 
 import os
+import re
 import shutil
 from typing import List
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, Response, UploadFile, status
@@ -24,24 +25,20 @@ from utils.create_watermark import  WaterMark
 thesis_router = APIRouter()
 
 
-
-
-
 @thesis_router.get('/description/{doc_id}', tags=['User in System'], response_model=Thesis)
 async def read_thesis(doc_id: int, db: session = Depends(get_db)):
 
     # join
-    thesis_info = db.query(ThesisDocument, ThesisFile, Advisor, User) \
-        .join(ThesisFile, ThesisDocument.doc_id == ThesisFile.doc_id) \
+    thesis_info = db.query(ThesisDocument, Advisor, User) \
         .join(Advisor, ThesisDocument.advisor_id == Advisor.advisor_id) \
         .join(User, ThesisDocument.user_id == User.user_id) \
-        .filter(ThesisDocument.doc_id == doc_id,) \
-        .all()
+        .filter(ThesisDocument.doc_id == doc_id,ThesisDocument.recheck_status ==1) \
+        .first() 
     if not thesis_info:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Thesis not found")
 
-    thesis_doc, thesis_file, advisor, user = thesis_info[0]
+    thesis_doc, advisor, user = thesis_info
     thesis_description = Thesis(
         doc_id=thesis_doc.doc_id,
         title_th=thesis_doc.title_th,
@@ -70,7 +67,6 @@ async def download_file(doc_id: int, background_tasks: BackgroundTasks,current_u
     # สร้างเส้นทางไฟล์ .pdf ที่จะใช้ในการบันทึกไฟล์ .pdf และในการส่งกลับให้ผู้ใช้
     pdf_file_path = os.path.join(
         os.getcwd(), "upload", "pdf", thesis_file.file_name.replace('.docx', '.pdf'))
-
     # ตรวจสอบว่าไฟล์ .pdf มีอยู่จริงหรือไม่
     if not os.path.exists(pdf_file_path):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="PDF file not found")
@@ -175,6 +171,18 @@ async def import_thesis(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Permission denied")
         # บันทึกไฟล์
+
+     # ตรวจสอบว่านิสิตมีวิทยานิพนธ์ที่ถูกปฏิเสธแล้วหรือไม่
+    existing_thesis = db.query(ThesisDocument).filter(
+        ThesisDocument.user_id == current_user.user_id,
+        ThesisDocument.recheck_status == 2,
+        ThesisDocument.deleted_at == None  # Assuming soft delete is represented by `is_deleted` flag
+    ).first()
+
+    if existing_thesis:
+        # ทำการ soft delete โดยการอัปเดตสถานะ `is_deleted`
+        existing_thesis.deleted_at = datetime.now()
+        db.commit()
 
     upload_folder = os.path.join(os.getcwd(),"upload");
     pdf_location = ''
@@ -315,6 +323,7 @@ async def recheck(doc_id: int, status: int = Query(None), current_user: User = D
 
     custom_dicts = get_customDict()
     # Tokenize the content and remove stop words
+    docx_text = re.sub(r'\b([A-Za-z]+)-([A-Za-z]+)\b', r'\1 \2', docx_text)
     word_seg = word_tokenize(docx_text,custom_dict=custom_dicts, keep_whitespace=False, engine='newmm')
     word_seg = list(map(perform_removal, word_seg))
     filtered_words = list(filter(lambda word: word != '', word_seg))
