@@ -19,7 +19,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=['http://localhost:8000','http://localhost:4200'],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -33,7 +33,7 @@ routes_import = [
     thesis_router,
     search_router
 ]
-
+ 
 
 for router in routes_import:
     app.include_router(router, prefix="/api")

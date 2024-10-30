@@ -46,3 +46,13 @@ class SendToken(BaseModel):  ## forgot password
 class ResetNewPassword(BaseModel):
     token: str
     new_password: str
+
+
+
+class Admin(BaseModel):
+    idx: int
+    user_id: int
+    fullname: str
+    email: str
+    access_role: int
+

@@ -57,7 +57,7 @@ async def simple_search(
     # Base query for rechecked documents
     base_query = db.query(ThesisDocument).filter( 
         ThesisDocument.recheck_status == 1, 
-        ThesisDocument.deleted_at == None )
+        ThesisDocument.deleted_at == None ).order_by(ThesisDocument.year)
     # Search logic
     if field == 'title_th':
         results = base_query.filter(

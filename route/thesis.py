@@ -32,7 +32,7 @@ async def read_thesis(doc_id: int, db: session = Depends(get_db)):
     thesis_info = db.query(ThesisDocument, Advisor, User) \
         .join(Advisor, ThesisDocument.advisor_id == Advisor.advisor_id) \
         .join(User, ThesisDocument.user_id == User.user_id) \
-        .filter(ThesisDocument.doc_id == doc_id,ThesisDocument.recheck_status ==1) \
+        .filter(ThesisDocument.doc_id == doc_id,ThesisDocument.recheck_status ==1,ThesisDocument.deleted_at==None) \
         .first() 
     if not thesis_info:
         raise HTTPException(
@@ -47,6 +47,7 @@ async def read_thesis(doc_id: int, db: session = Depends(get_db)):
         advisor_name=advisor.advisor_name,
         year=thesis_doc.year,
         abstract=thesis_doc.abstract,
+        recheck_status= thesis_doc.recheck_status
     )
     return thesis_description
 
@@ -55,11 +56,12 @@ async def read_thesis(doc_id: int, db: session = Depends(get_db)):
 async def download_file(doc_id: int, background_tasks: BackgroundTasks,current_user: User = Depends(get_current_user), db: session = Depends(get_db)):
     if not current_user:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized!")
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized!") 
 
     # เรียกฟังก์ชันหาข้อมูลไฟล์จากฐานข้อมูลโดยใช้ doc_id
+    thesis = db.query(ThesisDocument).filter(ThesisDocument.doc_id == doc_id,ThesisDocument.deleted_at == None).first()
     thesis_file = db.query(ThesisFile).filter(
-        ThesisFile.doc_id == doc_id).first()
+        ThesisFile.doc_id == thesis.doc_id).first()
     if not thesis_file:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Thesis file not found")
@@ -88,14 +90,14 @@ async def download_file(doc_id: int, background_tasks: BackgroundTasks,current_u
     return response
      
 
- 
+
 
 @thesis_router.get("/check-thesis")
 async def check_thesis(
     current_user: User = Depends(get_current_user),
     db: session = Depends(get_db)
 ):
-    if current_user.access_role != 0:
+    if current_user.access_role not in [0, 2]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Permission denied")   
     thesis = db.query(ThesisDocument).filter(

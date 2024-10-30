@@ -73,7 +73,9 @@ async def new_advisor(new_advisor: AdvisorForm,current_user: User = Depends(get_
         new_advisor = Advisor(advisor_name=new_advisor.advisor_name)
         db.add(new_advisor)
         db.commit()
-        return {"message": "The advisor has been created successfully","status_code":200}
+        db.refresh(new_advisor)  # อัปเดตข้อมูล entry ใหม่เพื่อให้ได้ ID
+
+        return {"message": "The advisor has been created successfully","status_code":200,"new_advisorId":new_advisor.advisor_id}
 
     except ValidationError as e :
         raise HTTPException(status_code=400, detail=str(e))
@@ -106,7 +108,7 @@ async def delete_advisor(advisor_id:int,current_user: User = Depends(get_current
     try:
         db.delete(this_advisor)
         db.commit()
-        return {"message": "This advisor has been deleted !"}
+        return {"message": "This advisor has been deleted !","status":200} 
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}") 

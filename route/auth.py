@@ -2,13 +2,12 @@ from datetime import datetime, timedelta, timezone
 from random import choice
 from fastapi import APIRouter, Depends, HTTPException, Response,status
 from middleware.authentication import verify_password, create_access_token,hash_password,get_current_user,encode_email_token,decode_email_token,JWT_EXPIRATION_MINUTES
-from middleware.gmail import sendEmail
+from middleware.gmail import EmailSender
 from model.reset_token import ResetPasswordTokens as ResetToken
-from model.user import ChangeInfoUser, ChangePasswordUser, RegisterUser,LoginUser, User
+from model.user import ChangeInfoUser, ChangePasswordUser, RegisterUser,LoginUser, User,SendToken, ResetNewPassword
 from pydantic import ValidationError
 from config.db_connect import get_db,session,SessionLocal
-from model.user import SendToken, ResetNewPassword
-
+ 
 router = APIRouter()
 
 # Function to generate a random token
@@ -185,24 +184,43 @@ async def change_password(change_password_data:ChangePasswordUser,current_user: 
 
 
 
-
-
 @router.post('/forgot-password',tags=["User Account Management"])
 async def forgot_password(request_email:SendToken, db: session = Depends(get_db)):
     user = db.query(User).filter(User.email == request_email.email).first()
     if user is None:
         raise HTTPException(status_code=404, detail="Email not found")   
         # Generate token
-    
-    
-    token =  encode_email_token(request_email.email)
-    sendEmail(receiver_email=request_email.email,token=token)
+    token = encode_email_token(request_email.email)
+
+    email_service = EmailSender()
+    email_service.sendEmail(request_email.email,token)
     save_token = ResetToken(user_id=user.user_id,token=token)
     db.add(save_token)
     db.commit()
     db.close()
-
     return {"message": "A token has been generated and sent to your email successfully!","status_code":200,"now":datetime.now()}
+
+
+
+
+
+
+# @router.post('/forgot-password',tags=["User Account Management"])
+# async def forgot_password(request_email:SendToken, db: session = Depends(get_db)):
+#     user = db.query(User).filter(User.email == request_email.email).first()
+#     if user is None:
+#         raise HTTPException(status_code=404, detail="Email not found")   
+#         # Generate token
+    
+    
+#     token =  encode_email_token(request_email.email)
+#     sendEmail(receiver_email=request_email.email,token=token)
+#     save_token = ResetToken(user_id=user.user_id,token=token)
+#     db.add(save_token)
+#     db.commit()
+#     db.close()
+
+#     return {"message": "A token has been generated and sent to your email successfully!","status_code":200,"now":datetime.now()}
 
 
 # @router.post('/verify_reset_token', tags=["Forgot Password"])

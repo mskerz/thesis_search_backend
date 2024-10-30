@@ -31,13 +31,6 @@ fire==0.6.0
 flatbuffers==24.3.25
 fsspec==2024.5.0
 gast==0.5.4
-google-api-core==2.18.0
-google-api-python-client==2.125.0
-google-auth==2.29.0
-google-auth-httplib2==0.2.0
-google-auth-oauthlib==1.2.0
-google-pasta==0.2.0
-googleapis-common-protos==1.63.0
 greenlet==3.0.3
 grpcio==1.64.0
 h11==0.14.0
