@@ -1,8 +1,0 @@
-{
-    "email": "wichasin.s@gmail.com",
-    "password": "123456",
-    "firstname": "วิชชาสิน",
-    "lastname": "สุทธิอาจ"
-  }
-
-  pip freeze > requirements.txt
