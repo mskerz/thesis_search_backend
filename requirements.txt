@@ -9,6 +9,7 @@ passlib==1.7.4
 pydantic==2.7.0
 pydantic_core==2.18.1
 pythainlp==5.0.2
+python-docx==1.1.0
 python-dotenv==1.0.1
 python_jose==3.3.0
 python-multipart==0.0.9
