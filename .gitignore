@@ -13,3 +13,4 @@ upload/pdf/*
 .env
 
 
+.vercel
