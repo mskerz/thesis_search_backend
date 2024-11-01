@@ -43,9 +43,9 @@ for router in routes_import:
 
 ## uvicorn main:app --reload 
 
-# if __name__ == "__main__":
-#     try:
-#         uvicorn.run("main:app",host="0.0.0.0", port=8000, reload=True)
-#     except KeyboardInterrupt:
-#         print("KeyboardInterrupt detected. Stopping the server gracefully.")
+if __name__ == "__main__":
+    try:
+        uvicorn.run("main:app",host="0.0.0.0", port=8000, reload=True)
+    except KeyboardInterrupt:
+        print("KeyboardInterrupt detected. Stopping the server gracefully.")
         
