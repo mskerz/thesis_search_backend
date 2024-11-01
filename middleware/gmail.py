@@ -8,18 +8,20 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from dotenv import load_dotenv
 load_dotenv()
- 
+
 
 class EmailSender:
     def __init__(self):
         self.email_sender = os.environ.get("EMAIL_SENDER")
-        self.email_password = os.environ.get("EMAIL_PASSWORD")
+        self.email_password = "email_app_password"  # email app password
         self.smtp_server = os.environ.get("SMTP_SERVER")
         self.port = 465
         self.context = ssl.create_default_context()
         # ตรวจสอบว่าตัวแปรทั้งหมดถูกตั้งค่าหรือไม่
         if not all([self.email_sender, self.email_password, self.smtp_server]):
             raise ValueError("Environment variables for email are not fully set.")
+
+
 
     def sendEmail(self, receiver_email: str, token: str):
         emailMsg = f"""
@@ -68,7 +70,7 @@ class EmailSender:
                 smtp.sendmail(self.email_sender, receiver_email, em.as_string())
             print("HTML email sent successfully!")
         except Exception as e:
-                raise HTTPException(status_code=500, detail=f"Server Interval Error: {e.message}")
+                raise HTTPException(status_code=500, detail=f"Server Interval Error{str(e)}")
 
 
 

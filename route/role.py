@@ -87,10 +87,11 @@ async def get_thesis_one(doc_id:int,current_user:User= Depends(get_current_user)
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permission denied")
         # Fetch the existing thesis entry from the database
     thesis = db.query(ThesisDocument).filter(ThesisDocument.doc_id == doc_id).first()
+    advisor = db.query(Advisor).filter(Advisor.advisor_id ==thesis.advisor_id).first()
     if not thesis:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Thesis not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Thesis not found") 
     
-    return {"doc_id": thesis.doc_id,"title_th":thesis.title_th,"title_en":thesis.title_en,"advisor_id":thesis.advisor_id,"year":thesis.year}
+    return {"doc_id": thesis.doc_id,"title_th":thesis.title_th,"title_en":thesis.title_en,"advisor_id":thesis.advisor_id,"advisor_name":advisor.advisor_name ,"year":thesis.year}
 
 @role_router.put('/thesis/edit/{doc_id}',tags=['Admin Management'])
 async def edit_thesis(doc_id:int,thesis_Edit:ThesisFormRequest,current_user:User = Depends(get_current_user),  db: Session = Depends(get_db)):

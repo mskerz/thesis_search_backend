@@ -9,7 +9,7 @@ load_dotenv()
 # SQLALCHEMY_DATABASE_URL = "mysql://root:1234@db:3306/thesis_base"
 username = os.environ.get("MYSQL_USER")
 password = os.environ.get("MYSQL_PASSWORD")
-SQLALCHEMY_DATABASE_URL = f"mysql://{username}:{password}@34.142.236.17:3306/thesis_base"
+SQLALCHEMY_DATABASE_URL = f"mysql+pymysql://{username}:{password}@34.87.45.177:3306/thesis_base"
  
 #  Create SQLAlchemy engine
 engine = create_engine(SQLALCHEMY_DATABASE_URL)  
